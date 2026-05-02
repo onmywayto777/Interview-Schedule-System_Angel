@@ -435,7 +435,9 @@ function openDetail(id) {
   const person = candidate(interview.candidateId);
   document.querySelector("#modalTitle").textContent = person.name;
   document.querySelector("#modalSubtitle").textContent = `${person.position} - ${interview.stage}`;
-  document.querySelector("#modalBody").innerHTML = `<div class="detail-grid">
+  document.querySelector("#modalBody").innerHTML = `<div class="actions" style="margin-bottom: 14px">
+    <button class="btn primary" id="editInterviewButton">Edit interview</button>
+  </div><div class="detail-grid">
     ${detail("Interview date", interview.date)}
     ${detail("Interview time", `${interview.time} - ${interview.duration} min`)}
     ${detail("Candidate email", person.email || "Missing")}
@@ -449,6 +451,10 @@ function openDetail(id) {
     ${detail("Meeting link", interview.meetingLink ? `<a href="${interview.meetingLink}" target="_blank">Open meeting</a>` : "Not set")}
     ${detail("Communication history", person.communication.join("<br>"))}
   </div>`;
+  document.querySelector("#editInterviewButton").addEventListener("click", () => {
+    document.querySelector("#detailModal").classList.remove("open");
+    openInterviewForm(interview.id);
+  });
   document.querySelector("#detailModal").classList.add("open");
 }
 
@@ -456,11 +462,34 @@ function detail(label, value) {
   return `<div class="detail"><div class="label">${label}</div><div>${value}</div></div>`;
 }
 
-function addInterview(form) {
+function openInterviewForm(id) {
+  const form = document.querySelector("#addForm");
+  form.reset();
+  document.querySelector("#interviewFormId").value = id || "";
+  document.querySelector("#interviewFormTitle").textContent = id ? "Edit interview" : "Add interview";
+  document.querySelector("#interviewSubmitButton").textContent = id ? "Save interview" : "Schedule interview";
+
+  if (id) {
+    const interview = state.interviews.find((item) => item.id === Number(id));
+    form.elements.candidateId.value = String(interview.candidateId);
+    form.elements.date.value = interview.date;
+    form.elements.time.value = interview.time;
+    form.elements.duration.value = String(interview.duration);
+    form.elements.place.value = interview.place;
+    form.elements.interviewers.value = interview.interviewers.join(", ");
+    form.elements.personInCharge.value = interview.personInCharge;
+    form.elements.stage.value = interview.stage;
+    form.elements.meetingLink.value = interview.meetingLink;
+  }
+  document.querySelector("#addModal").classList.add("open");
+}
+
+function saveInterview(form) {
   const data = Object.fromEntries(new FormData(form).entries());
   const interviewers = data.interviewers.split(",").map((item) => item.trim()).filter(Boolean);
+  const id = Number(data.id);
   const next = {
-    id: Date.now(),
+    id: id || Date.now(),
     candidateId: Number(data.candidateId),
     date: data.date,
     time: data.time,
@@ -477,7 +506,12 @@ function addInterview(form) {
     window.alert("Interviewer or candidate is already booked at this time.");
     return;
   }
-  state.interviews.push(next);
+  if (id) {
+    const index = state.interviews.findIndex((interview) => interview.id === id);
+    state.interviews[index] = next;
+  } else {
+    state.interviews.push(next);
+  }
   candidate(next.candidateId).status = "Interview Scheduled";
   document.querySelector("#addModal").classList.remove("open");
   renderAll();
@@ -571,7 +605,7 @@ document.querySelector("#clearFilters").addEventListener("click", () => {
 });
 
 document.querySelector("#openAdd").addEventListener("click", () => {
-  document.querySelector("#addModal").classList.add("open");
+  openInterviewForm();
 });
 
 document.querySelector("#openCandidateAdd").addEventListener("click", () => {
@@ -603,7 +637,7 @@ document.querySelector("#evaluationForm").addEventListener("submit", (event) => 
 
 document.querySelector("#addForm").addEventListener("submit", (event) => {
   event.preventDefault();
-  addInterview(event.target);
+  saveInterview(event.target);
 });
 
 document.querySelector("#candidateForm").addEventListener("submit", (event) => {
